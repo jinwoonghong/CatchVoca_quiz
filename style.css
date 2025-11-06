@@ -1,0 +1,623 @@
+/**
+ * CatchVoca Mobile Quiz - Styles
+ * Modern, responsive flashcard UI
+ */
+
+/* ============================================================================
+   Reset & Base Styles
+   ========================================================================= */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: #333;
+  line-height: 1.6;
+}
+
+/* ============================================================================
+   App Container
+   ========================================================================= */
+
+#app {
+  width: 100%;
+  max-width: 600px;
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================================================
+   State Containers (Loading, Error)
+   ========================================================================= */
+
+.state-container {
+  background: white;
+  border-radius: 20px;
+  padding: 60px 40px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  animation: slideUp 0.4s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.state-container .emoji {
+  font-size: 64px;
+  margin-bottom: 20px;
+  animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.state-container h2 {
+  font-size: 24px;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.state-container .subtitle {
+  font-size: 16px;
+  color: #666;
+  margin-bottom: 20px;
+}
+
+.state-container .help-text {
+  font-size: 14px;
+  color: #888;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.state-container .help-text small {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #999;
+}
+
+/* ============================================================================
+   Quiz Container
+   ========================================================================= */
+
+#quiz-container {
+  background: white;
+  border-radius: 20px;
+  padding: 30px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  animation: slideUp 0.4s ease-out;
+}
+
+/* ============================================================================
+   Header
+   ========================================================================= */
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo .emoji {
+  font-size: 28px;
+}
+
+.logo h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #333;
+  margin: 0;
+}
+
+.progress {
+  font-size: 18px;
+  font-weight: 600;
+  color: #667eea;
+  background: #f0f4ff;
+  padding: 8px 16px;
+  border-radius: 20px;
+}
+
+.progress #current {
+  color: #667eea;
+  font-weight: 700;
+}
+
+.progress #total {
+  color: #999;
+}
+
+/* ============================================================================
+   Flashcard
+   ========================================================================= */
+
+.card {
+  margin-bottom: 30px;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* Word Section (Front) */
+.word-section {
+  text-align: center;
+  margin-bottom: 30px;
+  padding: 40px 20px;
+  background: linear-gradient(135deg, #f5f7ff 0%, #fafbff 100%);
+  border-radius: 16px;
+}
+
+.word-text {
+  font-size: 48px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 10px;
+  word-break: break-word;
+  line-height: 1.2;
+}
+
+.phonetic {
+  font-size: 18px;
+  color: #888;
+  font-style: italic;
+  margin-bottom: 15px;
+}
+
+.audio-btn {
+  font-size: 16px;
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 600;
+}
+
+.audio-btn:hover:not(:disabled) {
+  background: #5568d3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.audio-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Definitions Section (Back) */
+.definitions-section {
+  text-align: center;
+}
+
+.answer-container {
+  margin-top: 20px;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.definitions-title {
+  font-size: 16px;
+  color: #888;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 15px;
+}
+
+.definitions-list {
+  list-style: none;
+  padding: 0;
+  text-align: left;
+  background: #f8f9fa;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.definitions-list li {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 16px;
+  color: #555;
+  transition: background 0.2s ease;
+}
+
+.definitions-list li:last-child {
+  border-bottom: none;
+}
+
+.definitions-list li:hover {
+  background: #f0f0f0;
+}
+
+.definitions-list li .def-number {
+  color: #667eea;
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+.definitions-list li.no-definition {
+  color: #999;
+  font-style: italic;
+  text-align: center;
+}
+
+/* ============================================================================
+   Controls
+   ========================================================================= */
+
+.controls {
+  display: flex;
+  gap: 15px;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.btn {
+  padding: 14px 28px;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex: 1;
+  font-family: inherit;
+  text-align: center;
+}
+
+.btn-primary {
+  background: #667eea;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #5568d3;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+}
+
+.btn-primary.active {
+  background: #5568d3;
+}
+
+.btn-secondary {
+  background: #e0e0e0;
+  color: #666;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #d0d0d0;
+  transform: translateY(-2px);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0) !important;
+}
+
+/* ============================================================================
+   Keyboard Shortcuts Guide
+   ========================================================================= */
+
+.shortcuts-guide {
+  text-align: center;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  margin-top: 10px;
+}
+
+.shortcuts-guide p {
+  font-size: 13px;
+  color: #666;
+  margin: 0;
+}
+
+.shortcuts-guide kbd {
+  display: inline-block;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin: 0 4px;
+  font-family: 'Courier New', monospace;
+}
+
+/* ============================================================================
+   Completion Message
+   ========================================================================= */
+
+.completion-message {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.completion-message .emoji {
+  font-size: 72px;
+  margin-bottom: 20px;
+  animation: celebrate 0.6s ease-in-out;
+}
+
+@keyframes celebrate {
+  0% {
+    transform: scale(0.5) rotate(-10deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1) rotate(5deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.completion-message h2 {
+  font-size: 32px;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.completion-message p {
+  font-size: 18px;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+.completion-message .subtitle {
+  font-size: 14px;
+  color: #888;
+  margin-bottom: 30px;
+}
+
+.completion-message .btn {
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+/* ============================================================================
+   Responsive Design
+   ========================================================================= */
+
+@media (max-width: 600px) {
+  body {
+    padding: 10px;
+  }
+
+  #quiz-container {
+    padding: 20px;
+    border-radius: 16px;
+  }
+
+  .logo h1 {
+    font-size: 18px;
+  }
+
+  .progress {
+    font-size: 16px;
+    padding: 6px 12px;
+  }
+
+  .word-text {
+    font-size: 36px;
+  }
+
+  .phonetic {
+    font-size: 16px;
+  }
+
+  .definitions-list li {
+    padding: 12px 16px;
+    font-size: 15px;
+  }
+
+  .btn {
+    padding: 12px 20px;
+    font-size: 15px;
+  }
+
+  .controls {
+    gap: 10px;
+  }
+
+  .shortcuts-guide {
+    font-size: 12px;
+    padding: 10px;
+  }
+
+  .shortcuts-guide kbd {
+    padding: 3px 6px;
+    font-size: 11px;
+  }
+
+  .completion-message .emoji {
+    font-size: 56px;
+  }
+
+  .completion-message h2 {
+    font-size: 24px;
+  }
+
+  .completion-message p {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 400px) {
+  .word-text {
+    font-size: 28px;
+  }
+
+  .logo .emoji {
+    font-size: 24px;
+  }
+
+  .logo h1 {
+    font-size: 16px;
+  }
+
+  .btn {
+    font-size: 14px;
+  }
+}
+
+/* ============================================================================
+   Dark Mode Support (Optional)
+   ========================================================================= */
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  }
+
+  .state-container,
+  #quiz-container {
+    background: #1f1f1f;
+    color: #e0e0e0;
+  }
+
+  .state-container h2,
+  .logo h1,
+  .word-text,
+  .completion-message h2 {
+    color: #e0e0e0;
+  }
+
+  .state-container .subtitle,
+  .phonetic,
+  .definitions-list li,
+  .completion-message p {
+    color: #b0b0b0;
+  }
+
+  .word-section {
+    background: linear-gradient(135deg, #2a2a2a 0%, #1f1f1f 100%);
+  }
+
+  .definitions-list {
+    background: #2a2a2a;
+  }
+
+  .definitions-list li {
+    border-bottom-color: #3a3a3a;
+  }
+
+  .definitions-list li:hover {
+    background: #333;
+  }
+
+  .btn-secondary {
+    background: #3a3a3a;
+    color: #b0b0b0;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: #4a4a4a;
+  }
+
+  .shortcuts-guide {
+    background: #2a2a2a;
+    color: #b0b0b0;
+  }
+
+  .shortcuts-guide kbd {
+    background: #3a3a3a;
+    color: #e0e0e0;
+    border-color: #4a4a4a;
+  }
+
+  .header {
+    border-bottom-color: #3a3a3a;
+  }
+
+  .progress {
+    background: #2a2a2a;
+  }
+}
+
+/* ============================================================================
+   Print Styles
+   ========================================================================= */
+
+@media print {
+  body {
+    background: white;
+  }
+
+  #quiz-container {
+    box-shadow: none;
+  }
+
+  .controls,
+  .shortcuts-guide,
+  .audio-btn {
+    display: none;
+  }
+}
