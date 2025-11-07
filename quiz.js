@@ -1,6 +1,6 @@
 /**
- * CatchVoca Mobile Quiz - Main Logic
- * URL Hash 기반 플래시카드 퀴즈
+ * CatchVoca Mobile Quiz - Firebase Version
+ * Firebase Realtime Database에서 퀴즈 데이터 로드
  */
 
 // ============================================================================
@@ -10,46 +10,90 @@
 let words = [];
 let currentIndex = 0;
 let showingAnswer = false;
+let firebaseApp = null;
+let database = null;
+
+// ============================================================================
+// Firebase Initialization
+// ============================================================================
+
+async function initializeFirebase() {
+  // Firebase 모듈이 로드될 때까지 대기
+  while (!window.firebaseModules) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  const { initializeApp, getDatabase } = window.firebaseModules;
+
+  if (!firebaseApp) {
+    firebaseApp = initializeApp(firebaseConfig);
+    database = getDatabase(firebaseApp);
+    console.log('[Quiz] Firebase initialized');
+  }
+
+  return database;
+}
 
 // ============================================================================
 // Data Loading
 // ============================================================================
 
 /**
- * URL hash에서 압축된 퀴즈 데이터 로드
+ * URL 쿼리 파라미터에서 퀴즈 ID 추출
  */
-function loadQuizData() {
-  const hash = window.location.hash.substring(1); // Remove '#'
+function getQuizIdFromUrl() {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get('id');
+}
 
-  if (!hash) {
-    showError('Quiz data not found in URL.', 'Please generate a quiz link from CatchVoca Extension.');
-    return null;
-  }
-
+/**
+ * Firebase에서 퀴즈 데이터 로드
+ */
+async function loadQuizDataFromFirebase(quizId) {
   try {
-    console.log('[Quiz] Decompressing data...');
-    const decompressed = LZString.decompressFromEncodedURIComponent(hash);
+    console.log('[Quiz] Loading from Firebase...', quizId);
 
-    if (!decompressed) {
-      showError('Failed to decompress quiz data.', 'The URL might be corrupted or incomplete.');
+    const db = await initializeFirebase();
+    const { ref, get } = window.firebaseModules;
+
+    const quizRef = ref(db, `${FIREBASE_PATHS.QUIZZES}/${quizId}`);
+    const snapshot = await get(quizRef);
+
+    if (!snapshot.exists()) {
+      showError('Quiz not found', 'The quiz link may have expired (7 days limit) or is invalid.');
       return null;
     }
 
-    console.log('[Quiz] Parsing JSON...');
-    const words = JSON.parse(decompressed);
+    const quizData = snapshot.val();
 
-    if (!Array.isArray(words) || words.length === 0) {
-      showError('No words found in quiz data.', 'Please generate a new quiz link.');
+    // 만료 확인
+    if (quizData.expiresAt < Date.now()) {
+      showError('Quiz expired', 'This quiz has expired. Please generate a new link.');
       return null;
     }
 
-    console.log(`[Quiz] Successfully loaded ${words.length} words`);
-    return words;
+    console.log(`[Quiz] Loaded ${quizData.words.length} words from Firebase`);
+    return quizData.words;
   } catch (error) {
-    console.error('[Quiz] Parse error:', error);
-    showError('Invalid quiz data format.', error.message);
+    console.error('[Quiz] Firebase load error:', error);
+    showError('Failed to load quiz', error.message || 'Please check your internet connection.');
     return null;
   }
+}
+
+/**
+ * 퀴즈 데이터 로드 (메인 함수)
+ */
+async function loadQuizData() {
+  const quizId = getQuizIdFromUrl();
+
+  if (!quizId) {
+    showError('Quiz ID not found in URL.', 'Please generate a quiz link from CatchVoca Extension.');
+    return null;
+  }
+
+  // Firebase에서 로드
+  return await loadQuizDataFromFirebase(quizId);
 }
 
 /**
@@ -74,11 +118,11 @@ function showError(mainMessage, detailMessage = '') {
 /**
  * 퀴즈 초기화
  */
-function initQuiz() {
+async function initQuiz() {
   console.log('[Quiz] Initializing...');
 
-  // URL hash 데이터 로드
-  words = loadQuizData();
+  // 퀴즈 데이터 로드
+  words = await loadQuizData();
 
   if (!words || words.length === 0) {
     return;
@@ -231,8 +275,6 @@ function showAnswer() {
   showAnswerBtn.textContent = 'Hide Answer';
   showAnswerBtn.classList.add('active');
   showingAnswer = true;
-
-  console.log('[Quiz] Answer shown');
 }
 
 /**
@@ -254,13 +296,11 @@ function hideAnswer() {
 
 /**
  * 단어 네비게이션
- * @param {number} direction - -1 (previous) or 1 (next)
  */
 function navigateWord(direction) {
   const newIndex = currentIndex + direction;
 
   if (newIndex < 0 || newIndex >= words.length) {
-    console.warn('[Quiz] Cannot navigate to index:', newIndex);
     return;
   }
 
@@ -305,17 +345,14 @@ function playAudio() {
   const audioUrl = audioBtn.dataset.audioUrl;
 
   if (!audioUrl) {
-    console.warn('[Quiz] No audio URL found');
     return;
   }
-
-  console.log('[Quiz] Playing audio:', audioUrl);
 
   const audio = new Audio(audioUrl);
 
   audio.play().catch((error) => {
     console.error('[Quiz] Audio play error:', error);
-    alert('Failed to play audio. Please check your connection.');
+    alert('Failed to play audio.');
   });
 
   // Visual feedback
@@ -341,7 +378,6 @@ function playAudio() {
  * 키보드 이벤트 핸들러
  */
 function handleKeydown(event) {
-  // 입력 필드에서는 단축키 비활성화
   if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
     return;
   }
@@ -362,16 +398,7 @@ function handleKeydown(event) {
       toggleAnswer();
       break;
 
-    case 'a':
-    case 'A':
-      event.preventDefault();
-      if (document.getElementById('play-audio').style.display !== 'none') {
-        playAudio();
-      }
-      break;
-
     default:
-      // Do nothing
       break;
   }
 }
@@ -386,12 +413,4 @@ function handleKeydown(event) {
 window.addEventListener('DOMContentLoaded', () => {
   console.log('[Quiz] DOM loaded');
   initQuiz();
-});
-
-/**
- * Hash 변경 시 재초기화 (새 퀴즈 로드)
- */
-window.addEventListener('hashchange', () => {
-  console.log('[Quiz] Hash changed, reinitializing...');
-  location.reload();
 });
