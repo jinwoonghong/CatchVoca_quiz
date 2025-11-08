@@ -21,9 +21,22 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Missing or invalid authorization header' });
     }
 
-    const idToken = authHeader.substring(7);
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const userId = decodedToken.uid;
+    // Extract and decode custom token
+    const customToken = authHeader.substring(7);
+
+    // Custom tokens are JWTs - decode the payload
+    const tokenParts = customToken.split('.');
+    if (tokenParts.length !== 3) {
+      return res.status(401).json({ error: 'Invalid token format' });
+    }
+
+    // Decode JWT payload (base64url decode)
+    const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
+    const userId = payload.uid || payload.sub;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Invalid token: missing uid' });
+    }
 
     // Parse request body
     const { words = [], reviews = [], deviceId, timestamp } = req.body;
@@ -37,9 +50,22 @@ export default async function handler(req, res) {
     let wordCount = 0;
     let reviewCount = 0;
 
+    // Helper function to encode ID for Firebase Realtime Database
+    // Firebase keys cannot contain . $ # [ ] / or ASCII control characters
+    const encodeFirebaseKey = (key) => {
+      return key
+        .replace(/\./g, '%2E')
+        .replace(/\$/g, '%24')
+        .replace(/#/g, '%23')
+        .replace(/\[/g, '%5B')
+        .replace(/\]/g, '%5D')
+        .replace(/\//g, '%2F');
+    };
+
     // Process word changes
     for (const word of words) {
-      const wordPath = `users/${userId}/words/${word.id}`;
+      const encodedWordId = encodeFirebaseKey(word.id);
+      const wordPath = `users/${userId}/words/${encodedWordId}`;
 
       // Get existing data for conflict resolution
       const existingSnapshot = await adminDb.ref(wordPath).get();
@@ -66,7 +92,8 @@ export default async function handler(req, res) {
 
     // Process review changes
     for (const review of reviews) {
-      const reviewPath = `users/${userId}/reviews/${review.id}`;
+      const encodedReviewId = encodeFirebaseKey(review.id);
+      const reviewPath = `users/${userId}/reviews/${encodedReviewId}`;
 
       // Get existing data for conflict resolution
       const existingSnapshot = await adminDb.ref(reviewPath).get();

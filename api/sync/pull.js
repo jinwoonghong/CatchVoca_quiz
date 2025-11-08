@@ -21,12 +21,36 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Missing or invalid authorization header' });
     }
 
-    const idToken = authHeader.substring(7);
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const userId = decodedToken.uid;
+    // Extract and decode custom token
+    const customToken = authHeader.substring(7);
+
+    // Custom tokens are JWTs - decode the payload
+    const tokenParts = customToken.split('.');
+    if (tokenParts.length !== 3) {
+      return res.status(401).json({ error: 'Invalid token format' });
+    }
+
+    // Decode JWT payload (base64url decode)
+    const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
+    const userId = payload.uid || payload.sub;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Invalid token: missing uid' });
+    }
 
     // Parse query parameters
     const lastSyncedAt = parseInt(req.query.lastSyncedAt || '0', 10);
+
+    // Helper function to decode Firebase key back to original ID
+    const decodeFirebaseKey = (key) => {
+      return key
+        .replace(/%2E/g, '.')
+        .replace(/%24/g, '$')
+        .replace(/%23/g, '#')
+        .replace(/%5B/g, '[')
+        .replace(/%5D/g, ']')
+        .replace(/%2F/g, '/');
+    };
 
     // Query words from Realtime Database
     const wordsRef = adminDb.ref(`users/${userId}/words`);
