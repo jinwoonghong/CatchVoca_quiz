@@ -1,0 +1,16 @@
+{
+  "name": "catchvoca-quiz",
+  "version": "1.0.0",
+  "description": "CatchVoca Mobile Quiz & Sync API Server",
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  },
+  "devDependencies": {
+    "@vercel/node": "^3.0.0"
+  }
+}
