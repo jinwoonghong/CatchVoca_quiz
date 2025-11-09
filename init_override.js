@@ -12,7 +12,14 @@ async function initQuizWithAuth() {
   // Firebase 초기화
   await initializeFirebase();
 
-  // 인증 상태 확인
+  // ✅ auth 객체가 null이 아닌지 명시적 확인
+  if (!auth) {
+    console.error('[Quiz] Firebase Auth not initialized');
+    showError('Firebase 초기화 실패', '페이지를 새로고침해주세요.');
+    return;
+  }
+
+  // 인증 상태 확인 (이제 auth가 보장됨)
   const user = await checkAuthState();
 
   if (!user) {

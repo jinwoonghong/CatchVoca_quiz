@@ -443,9 +443,11 @@ async function handleRating(rating) {
     return;
   }
 
-  const wordId = `${word.w}::${quizId}`;
+  // ✅ normalizedWord 사용 (PC 동기화와 일치)
+  const normalizedWord = word.w.toLowerCase().trim();
+  const wordId = `${normalizedWord}::${quizId}`;
 
-  console.log(`[Quiz] Rating ${rating} for word:`, word.w);
+  console.log(`[Quiz] Rating ${rating} for word:`, word.w, `(normalized: ${normalizedWord})`);
 
   // 현재 ReviewState 가져오기 또는 초기화
   let currentState = reviewStates[wordId];
@@ -511,7 +513,10 @@ async function saveReviewStateToFirebase(wordId) {
     console.log('[Quiz] Review state saved to Firebase:', wordId);
   } catch (error) {
     console.error('[Quiz] Failed to save review state:', error);
-    // 사용자에게는 조용히 실패 (퀴즈 진행 방해 방지)
+
+    // ✅ 사용자에게 저장 실패 알림
+    alert('⚠️ 학습 기록 저장 실패\n\n인터넷 연결을 확인하고 다시 시도해주세요.');
+    throw error; // 재시도 가능하도록 에러 전파
   }
 }
 
