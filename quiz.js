@@ -125,12 +125,13 @@ async function initializeFirebase() {
     await new Promise(resolve => setTimeout(resolve, 100));
   }
 
-  const { initializeApp, getDatabase } = window.firebaseModules;
+  const { initializeApp, getDatabase, getAuth } = window.firebaseModules;
 
   if (!firebaseApp) {
     firebaseApp = initializeApp(firebaseConfig);
     database = getDatabase(firebaseApp);
-    console.log('[Quiz] Firebase initialized');
+    auth = getAuth(firebaseApp);
+    console.log('[Quiz] Firebase initialized (database + auth)');
   }
 
   return database;
