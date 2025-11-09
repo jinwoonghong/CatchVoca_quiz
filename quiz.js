@@ -13,6 +13,7 @@ let showingAnswer = false;
 let firebaseApp = null;
 let database = null;
 let quizId = null;
+let userId = null; // User ID from URL parameter
 let reviewStates = {}; // SM-2 algorithm states: { wordId: ReviewState }
 let auth = null;
 let currentUser = null;
@@ -182,11 +183,12 @@ async function loadQuizDataFromFirebase(quizIdParam) {
       return null;
     }
 
-    // quizId 저장
+    // quizId와 userId 저장
     quizId = quizIdParam;
+    userId = userIdParam;
 
     // reviewStates 로드 (있다면)
-    const reviewStatesRef = ref(db, `${FIREBASE_PATHS.QUIZZES}/${quizIdParam}/reviewStates`);
+    const reviewStatesRef = ref(db, `users/${userIdParam}/${FIREBASE_PATHS.QUIZZES}/${quizIdParam}/reviewStates`);
     const reviewStatesSnapshot = await get(reviewStatesRef);
 
     if (reviewStatesSnapshot.exists()) {
@@ -487,7 +489,8 @@ async function saveReviewStateToFirebase(wordId) {
     const db = await initializeFirebase();
     const { ref, update } = window.firebaseModules;
 
-    const reviewStateRef = ref(db, `${FIREBASE_PATHS.QUIZZES}/${quizId}/reviewStates/${wordId}`);
+    // userId를 포함한 올바른 경로에 저장
+    const reviewStateRef = ref(db, `users/${userId}/${FIREBASE_PATHS.QUIZZES}/${quizId}/reviewStates/${wordId}`);
     await update(reviewStateRef, reviewStates[wordId]);
 
     console.log('[Quiz] Review state saved to Firebase:', wordId);
