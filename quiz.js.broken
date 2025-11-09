@@ -1,6 +1,6 @@
 /**
- * CatchVoca Mobile Quiz - Firebase Version with SM-2 Algorithm
- * Implements identical learning logic as PC Chrome Extension
+ * CatchVoca Mobile Quiz - Firebase Version
+ * Firebase Realtime Database에서 퀴즈 데이터 로드
  */
 
 // ============================================================================
@@ -12,107 +12,8 @@ let currentIndex = 0;
 let showingAnswer = false;
 let firebaseApp = null;
 let database = null;
-let quizId = null;
-let reviewStates = {}; // SM-2 algorithm states: { wordId: ReviewState }
-let auth = null;
-let currentUser = null;
-
-// ============================================================================
-// SM-2 Algorithm Configuration & Implementation
-// ============================================================================
-
-/**
- * SM-2 알고리즘 설정
- */
-const SM2_CONFIG = {
-  minEaseFactor: 1.3,
-  maxEaseFactor: 2.5,
-  firstInterval: 1,    // 1일
-  secondInterval: 6,   // 6일
-};
-
-/**
- * Rating enum (1-5)
- */
-const Rating = {
-  Again: 1,      // 완전히 못 외움
-  Hard: 2,       // 어렵게 기억
-  Good: 3,       // 보통
-  Easy: 4,       // 쉽게 기억
-  VeryEasy: 5,   // 매우 쉽게 기억 (UI에서는 사용 안 함)
-};
-
-/**
- * SM-2 알고리즘을 사용하여 다음 복습 일정 계산
- * @param {Object} currentState - 현재 복습 상태
- * @param {number} rating - 사용자의 평가 (1-5)
- * @returns {Object} 다음 복습 일정 정보
- */
-function calculateNextReview(currentState, rating) {
-  let { interval, easeFactor, repetitions } = currentState;
-
-  // 1. EaseFactor 계산
-  // EF' = EF + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
-  const newEaseFactor = Math.max(
-    SM2_CONFIG.minEaseFactor,
-    Math.min(
-      SM2_CONFIG.maxEaseFactor,
-      easeFactor + (0.1 - (5 - rating) * (0.08 + (5 - rating) * 0.02))
-    )
-  );
-
-  // 2. 평가에 따른 간격 및 반복 횟수 계산
-  let newInterval;
-  let newRepetitions;
-
-  if (rating < Rating.Good) {
-    // Rating이 Good(3) 미만이면 처음부터 다시 시작
-    newInterval = SM2_CONFIG.firstInterval;
-    newRepetitions = 0;
-  } else {
-    // Rating이 Good(3) 이상이면 성공
-    newRepetitions = repetitions + 1;
-
-    if (newRepetitions === 1) {
-      // 첫 번째 성공 복습
-      newInterval = SM2_CONFIG.firstInterval;
-    } else if (newRepetitions === 2) {
-      // 두 번째 성공 복습
-      newInterval = SM2_CONFIG.secondInterval;
-    } else {
-      // 세 번째 이후 성공 복습
-      // I(n) = I(n-1) * EF
-      newInterval = Math.round(interval * newEaseFactor);
-    }
-  }
-
-  // 3. 다음 복습 시각 계산
-  const now = Date.now();
-  const nextReviewAt = now + newInterval * 24 * 60 * 60 * 1000;
-
-  return {
-    nextReviewAt,
-    interval: newInterval,
-    easeFactor: newEaseFactor,
-    repetitions: newRepetitions,
-  };
-}
-
-/**
- * 초기 ReviewState 생성
- * @param {string} wordId - 단어 ID
- * @returns {Object} 초기 ReviewState
- */
-function createInitialReviewState(wordId) {
-  const now = Date.now();
-  return {
-    wordId,
-    nextReviewAt: now, // 저장 즉시 복습 가능
-    interval: SM2_CONFIG.firstInterval,
-    easeFactor: 2.5, // 초기 난이도 계수
-    repetitions: 0,
-  };
-}
+let quizId = null;  // 퀴즈 ID 저장
+let reviewStates = {};  // SM-2 ReviewState 저장 (wordId 기준)
 
 // ============================================================================
 // Firebase Initialization
@@ -150,14 +51,14 @@ function getQuizIdFromUrl() {
 /**
  * Firebase에서 퀴즈 데이터 로드
  */
-async function loadQuizDataFromFirebase(quizIdParam) {
+async function loadQuizDataFromFirebase(id) {
   try {
-    console.log('[Quiz] Loading from Firebase...', quizIdParam);
+    console.log('[Quiz] Loading from Firebase...', id);
 
     const db = await initializeFirebase();
     const { ref, get } = window.firebaseModules;
 
-    const quizRef = ref(db, `${FIREBASE_PATHS.QUIZZES}/${quizIdParam}`);
+    const quizRef = ref(db, `${FIREBASE_PATHS.QUIZZES}/${id}`);
     const snapshot = await get(quizRef);
 
     if (!snapshot.exists()) {
@@ -173,23 +74,14 @@ async function loadQuizDataFromFirebase(quizIdParam) {
       return null;
     }
 
-    // quizId 저장
-    quizId = quizIdParam;
-
-    // reviewStates 로드 (있다면)
-    const reviewStatesRef = ref(db, `${FIREBASE_PATHS.QUIZZES}/${quizIdParam}/reviewStates`);
-    const reviewStatesSnapshot = await get(reviewStatesRef);
-
-    if (reviewStatesSnapshot.exists()) {
-      reviewStates = reviewStatesSnapshot.val() || {};
-      console.log('[Quiz] Loaded review states:', Object.keys(reviewStates).length);
-    } else {
-      reviewStates = {};
-      console.log('[Quiz] No review states found, starting fresh');
+    // 기존 reviewStates 로드
+    if (quizData.reviewStates) {
+      reviewStates = quizData.reviewStates;
+      console.log('[Quiz] Loaded existing reviewStates:', reviewStates);
     }
 
     console.log(`[Quiz] Loaded ${quizData.words.length} words from Firebase`);
-    return quizData.words;
+    return quizData.words
   } catch (error) {
     console.error('[Quiz] Firebase load error:', error);
     showError('Failed to load quiz', error.message || 'Please check your internet connection.');
@@ -201,15 +93,18 @@ async function loadQuizDataFromFirebase(quizIdParam) {
  * 퀴즈 데이터 로드 (메인 함수)
  */
 async function loadQuizData() {
-  const quizIdParam = getQuizIdFromUrl();
+  const urlQuizId = getQuizIdFromUrl();
 
-  if (!quizIdParam) {
+  if (!urlQuizId) {
     showError('Quiz ID not found in URL.', 'Please generate a quiz link from CatchVoca Extension.');
     return null;
   }
 
+  // 전역 변수에 저장
+  quizId = urlQuizId;
+
   // Firebase에서 로드
-  return await loadQuizDataFromFirebase(quizIdParam);
+  return await loadQuizDataFromFirebase(quizId)
 }
 
 /**
@@ -274,16 +169,16 @@ function setupEventListeners() {
   // 오디오 재생 버튼
   document.getElementById('play-audio').addEventListener('click', playAudio);
 
-  // 평점 버튼
+  // 평가 버튼
   document.querySelectorAll('.rating-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const rating = parseInt(btn.dataset.rating);
+    btn.addEventListener('click', (e) => {
+      const rating = parseInt(e.currentTarget.dataset.rating);
       handleRating(rating);
     });
   });
 
   // 키보드 단축키
-  document.addEventListener('keydown', handleKeydown);
+  document.addEventListener('keydown', handleKeydown)
 }
 
 // ============================================================================
@@ -415,33 +310,161 @@ function hideAnswer() {
 }
 
 // ============================================================================
-// SM-2 Rating Handler
+// Navigation
 // ============================================================================
 
 /**
- * 평점 처리 (SM-2 알고리즘 적용)
+ * 단어 네비게이션
+ */
+function navigateWord(direction) {
+  const newIndex = currentIndex + direction;
+
+  if (newIndex < 0 || newIndex >= words.length) {
+    return;
+  }
+
+  // 마지막 단어에서 "Finish" 클릭 시
+  if (currentIndex === words.length - 1 && direction === 1) {
+    showCompletionMessage();
+    return;
+  }
+
+  showWord(newIndex);
+}
+
+/**
+ * 퀴즈 완료 메시지
+ */
+function showCompletionMessage() {
+  // 통계 계산
+  const totalReviewed = Object.keys(progress).length;
+  const avgRating = totalReviewed > 0
+    ? Object.values(progress).reduce((sum, p) => sum + p.lastRating, 0) / totalReviewed
+    : 0;
+
+  const card = document.querySelector('.card');
+  card.innerHTML = `
+    <div class=\"completion-message\">
+      <div class=\"emoji\">🎉</div>
+      <h2>학습 완료!</h2>
+      <p>총 ${words.length}개 단어 중 ${totalReviewed}개를 복습했습니다.</p>
+      <p class=\"subtitle\">평균 난이도: ${avgRating.toFixed(1)}점</p>
+      <p class=\"subtitle\">꾸준히 복습하여 기억을 강화하세요!</p>
+      <button class=\"btn btn-primary\" onclick=\"location.reload()\">
+        다시 시작
+      </button>
+    </div>
+  `;
+
+  document.querySelector('.controls').style.display = 'none';
+}
+
+// ============================================================================
+
+// ============================================================================
+// SM-2 Algorithm (Same as PC Extension)
+// ============================================================================
+
+/**
+ * SM-2 설정
+ */
+const SM2_CONFIG = {
+  minEaseFactor: 1.3,
+  maxEaseFactor: 2.5,
+  firstInterval: 1,  // 1일
+  secondInterval: 6,  // 6일
+};
+
+/**
+ * Rating enum (1-5)
+ */
+const Rating = {
+  Again: 1,      // 완전히 못 외움
+  Hard: 2,       // 어렵게 기억
+  Good: 3,       // 보통
+  Easy: 4,       // 쉽게 기억
+  VeryEasy: 5,   // 매우 쉽게 기억
+};
+
+/**
+ * SM-2 알고리즘 계산
+ */
+function calculateNextReview(currentState, rating) {
+  let { interval, easeFactor, repetitions } = currentState;
+
+  // 1. EaseFactor 계산
+  const newEaseFactor = Math.max(
+    SM2_CONFIG.minEaseFactor,
+    Math.min(
+      SM2_CONFIG.maxEaseFactor,
+      easeFactor + (0.1 - (5 - rating) * (0.08 + (5 - rating) * 0.02))
+    )
+  );
+
+  // 2. 평가에 따른 간격 및 반복 횟수 계산
+  let newInterval;
+  let newRepetitions;
+
+  if (rating < Rating.Good) {
+    // Rating이 Good(3) 미만이면 처음부터 다시 시작
+    newInterval = SM2_CONFIG.firstInterval;
+    newRepetitions = 0;
+  } else {
+    // Rating이 Good(3) 이상이면 성공
+    newRepetitions = repetitions + 1;
+
+    if (newRepetitions === 1) {
+      newInterval = SM2_CONFIG.firstInterval;
+    } else if (newRepetitions === 2) {
+      newInterval = SM2_CONFIG.secondInterval;
+    } else {
+      newInterval = Math.round(interval * newEaseFactor);
+    }
+  }
+
+  // 3. 다음 복습 시각 계산
+  const now = Date.now();
+  const nextReviewAt = now + newInterval * 24 * 60 * 60 * 1000;
+
+  return {
+    nextReviewAt,
+    interval: newInterval,
+    easeFactor: newEaseFactor,
+    repetitions: newRepetitions,
+  };
+}
+
+// ============================================================================
+// Rating System (SM-2 Simplified)
+// ============================================================================
+
+/**
+ * 평가 처리
  */
 async function handleRating(rating) {
-  const word = words[currentIndex];
-  const wordId = `${word.w}::${quizId}`;
+  console.log(`[Quiz] Rating ${rating} for word ${currentIndex}`);
 
-  console.log(`[Quiz] Rating ${rating} for word:`, word.w);
+  const word = words[currentIndex];
+  if (!word) return;
+
+  // WordID 생성 (word + url 조합)
+  const wordId = `${word.w}::${quizId}`;
 
   // 현재 ReviewState 가져오기 또는 초기화
   let currentState = reviewStates[wordId];
   if (!currentState) {
-    currentState = createInitialReviewState(wordId);
-    console.log('[Quiz] Created initial review state for:', wordId);
+    // 첫 학습: 초기 ReviewState 생성
+    currentState = {
+      wordId: wordId,
+      nextReviewAt: Date.now(),
+      interval: 1,
+      easeFactor: 2.5,
+      repetitions: 0,
+    };
   }
 
   // SM-2 알고리즘으로 다음 복습 일정 계산
   const sm2Result = calculateNextReview(currentState, rating);
-
-  console.log('[Quiz] SM-2 calculation result:', {
-    interval: sm2Result.interval,
-    easeFactor: sm2Result.easeFactor,
-    repetitions: sm2Result.repetitions,
-  });
 
   // ReviewState 업데이트
   reviewStates[wordId] = {
@@ -470,107 +493,80 @@ async function handleRating(rating) {
   }, 1000);
 }
 
+  progress[currentIndex].ratings.push(rating);
+  progress[currentIndex].lastRating = rating;
+  progress[currentIndex].reviewedAt = Date.now();
+
+  // Firebase에 저장
+  await saveProgressToFirebase();
+
+  // 피드백 표시
+  showRatingFeedback(rating);
+
+  // 1초 후 다음 단어로 이동
+  setTimeout(() => {
+    if (currentIndex < words.length - 1) {
+      navigateWord(1);
+    } else {
+      showCompletionMessage();
+    }
+  }, 1000);
+}
+
 /**
- * ReviewState를 Firebase에 저장
+ * Firebase에 진행률 저장
  */
-async function saveReviewStateToFirebase(wordId) {
+async function saveProgressToFirebase() {
+  if (!quizId || !database) return;
+
   try {
-    const db = await initializeFirebase();
     const { ref, update } = window.firebaseModules;
+    const progressRef = ref(database, `${FIREBASE_PATHS.QUIZZES}/${quizId}/progress`);
 
-    const reviewStateRef = ref(db, `${FIREBASE_PATHS.QUIZZES}/${quizId}/reviewStates/${wordId}`);
-    await update(reviewStateRef, reviewStates[wordId]);
+    await update(progressRef, {
+      [currentIndex]: progress[currentIndex]
+    });
 
-    console.log('[Quiz] Review state saved to Firebase:', wordId);
+    console.log('[Quiz] Progress saved to Firebase');
   } catch (error) {
-    console.error('[Quiz] Failed to save review state:', error);
+    console.error('[Quiz] Failed to save progress:', error);
   }
 }
 
 /**
- * 평점 피드백 표시
+ * 평가 피드백 표시
  */
-function showRatingFeedback(rating, interval) {
+function showRatingFeedback(rating) {
   const feedbackMessages = {
-    1: `다시 복습하세요! (다음: ${interval}일 후)`,
-    2: `조금 더 연습이 필요해요 (다음: ${interval}일 후)`,
-    3: `좋아요! (다음: ${interval}일 후)`,
-    4: `완벽해요! (다음: ${interval}일 후)`,
+    1: '❌ 다시 복습이 필요해요!',
+    2: '😓 조금 더 연습해보세요',
+    3: '🤔 괜찮아요!',
+    4: '✅ 완벽해요!'
   };
 
-  const message = feedbackMessages[rating] || '평가 완료!';
-
-  // 임시 알림 표시
-  const feedback = document.createElement('div');
-  feedback.className = 'rating-feedback';
-  feedback.textContent = message;
-  feedback.style.cssText = `
+  const message = feedbackMessages[rating] || '평가 완료';
+  
+  // 간단한 토스트 메시지 표시
+  const toast = document.createElement('div');
+  toast.className = 'rating-toast';
+  toast.textContent = message;
+  toast.style.cssText = `
     position: fixed;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     background: rgba(0, 0, 0, 0.8);
     color: white;
-    padding: 20px 40px;
-    border-radius: 10px;
+    padding: 16px 24px;
+    border-radius: 8px;
     font-size: 18px;
     z-index: 1000;
-    animation: fadeIn 0.3s ease-in-out;
+    animation: fadeInOut 1s ease-in-out;
   `;
 
-  document.body.appendChild(feedback);
-
-  setTimeout(() => {
-    feedback.remove();
-  }, 900);
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 1000);
 }
-
-// ============================================================================
-// Navigation
-// ============================================================================
-
-/**
- * 단어 네비게이션
- */
-function navigateWord(direction) {
-  const newIndex = currentIndex + direction;
-
-  if (newIndex < 0 || newIndex >= words.length) {
-    return;
-  }
-
-  // 마지막 단어에서 "Finish" 클릭 시
-  if (currentIndex === words.length - 1 && direction === 1) {
-    showCompletionMessage();
-    return;
-  }
-
-  showWord(newIndex);
-}
-
-/**
- * 퀴즈 완료 메시지
- */
-function showCompletionMessage() {
-  const reviewedCount = Object.keys(reviewStates).length;
-
-  const card = document.querySelector('.card');
-  card.innerHTML = `
-    <div class="completion-message">
-      <div class="emoji">🎉</div>
-      <h2>Quiz Complete!</h2>
-      <p>You've reviewed ${reviewedCount} words out of ${words.length}.</p>
-      <p class="subtitle">Great job! Keep practicing to improve retention.</p>
-      <button class="btn btn-primary" onclick="location.reload()">
-        Restart Quiz
-      </button>
-    </div>
-  `;
-
-  document.querySelector('.controls').style.display = 'none';
-}
-
-// ============================================================================
 // Audio Playback
 // ============================================================================
 

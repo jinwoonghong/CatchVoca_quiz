@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="CatchVoca Mobile Quiz - Practice your vocabulary anytime, anywhere">
-  <title>CatchVoca Mobile Quiz</title>
+  <meta name="description" content="CatchVoca 모바일 퀴즈 - 언제 어디서나 단어를 복습하세요">
+  <title>CatchVoca 모바일 퀴즈</title>
   <link rel="stylesheet" href="style.css">
 
-  <!-- Favicon (optional) -->
+  <!-- Favicon -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
 </head>
 <body>
@@ -15,18 +15,29 @@
     <!-- Loading State -->
     <div id="loading" class="state-container">
       <div class="emoji">📚</div>
-      <h2>Loading quiz...</h2>
-      <p class="subtitle">Preparing your flashcards</p>
+      <h2>퀴즈 로딩 중...</h2>
+      <p class="subtitle">단어장을 준비하고 있어요</p>
+    </div>
+
+
+    <!-- Login Required State -->
+    <div id="login-required" class="state-container" style="display:none;">
+      <div class="emoji">🔒</div>
+      <h2>로그인이 필요합니다</h2>
+      <p class="subtitle">모바일 학습을 시작하려면 구글 계정으로 로그인해주세요</p>
+      <button id="google-sign-in-btn" class="btn btn-primary" style="margin-top: 20px;">
+        🔑 구글 로그인
+      </button>
     </div>
 
     <!-- Error State -->
     <div id="error" class="state-container" style="display:none;">
       <div class="emoji">⚠️</div>
-      <h2>Oops! Something went wrong</h2>
+      <h2>문제가 발생했습니다</h2>
       <p id="error-message" class="subtitle"></p>
       <p class="help-text">
-        Please generate a new quiz link from the CatchVoca Extension.<br>
-        <small>Settings → Mobile Quiz → Generate Link</small>
+        CatchVoca 확장 프로그램에서 새 퀴즈 링크를 생성해주세요.<br>
+        <small>설정 → 모바일 퀴즈 → 링크 생성</small>
       </p>
     </div>
 
@@ -36,7 +47,12 @@
       <div class="header">
         <div class="logo">
           <span class="emoji">📚</span>
-          <h1>CatchVoca Quiz</h1>
+          <h1>CatchVoca</h1>
+        </div>
+        <div class="user-info" id="user-info" style="display:none;">
+          <img id="user-photo" class="user-photo" alt="User" style="width: 32px; height: 32px; border-radius: 50%; margin-right: 8px;" />
+          <span id="user-name" class="user-name" style="margin-right: 12px; font-size: 14px;"></span>
+          <button id="sign-out-btn" class="btn-small" style="padding: 4px 12px; font-size: 12px;">로그아웃</button>
         </div>
         <div class="progress">
           <span id="current">1</span> / <span id="total">0</span>
@@ -49,20 +65,43 @@
         <div class="word-section">
           <h2 id="word-text" class="word-text"></h2>
           <p id="phonetic" class="phonetic"></p>
-          <button id="play-audio" class="audio-btn" style="display:none;" title="Play pronunciation">
-            🔊 Play
+          <button id="play-audio" class="audio-btn" style="display:none;" title="발음 듣기">
+            🔊 발음 듣기
           </button>
         </div>
 
         <!-- Back Side (Definitions) -->
         <div class="definitions-section">
           <button id="show-answer" class="btn btn-primary">
-            Show Answer
+            뜻 보기
           </button>
 
           <div id="answer" class="answer-container" style="display:none;">
-            <h3 class="definitions-title">Definitions</h3>
+            <h3 class="definitions-title">뜻</h3>
             <ul id="definitions-list" class="definitions-list"></ul>
+
+            <!-- Rating Buttons -->
+            <div class="rating-section">
+              <p class="rating-title">얼마나 잘 기억하셨나요?</p>
+              <div class="rating-buttons">
+                <button class="rating-btn rating-again" data-rating="1">
+                  <span class="rating-emoji">❌</span>
+                  <span class="rating-label">전혀</span>
+                </button>
+                <button class="rating-btn rating-hard" data-rating="2">
+                  <span class="rating-emoji">😓</span>
+                  <span class="rating-label">어려움</span>
+                </button>
+                <button class="rating-btn rating-good" data-rating="3">
+                  <span class="rating-emoji">🤔</span>
+                  <span class="rating-label">보통</span>
+                </button>
+                <button class="rating-btn rating-easy" data-rating="4">
+                  <span class="rating-emoji">✅</span>
+                  <span class="rating-label">쉬움</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -70,18 +109,18 @@
       <!-- Navigation Controls -->
       <div class="controls">
         <button id="prev-btn" class="btn btn-secondary" disabled>
-          ← Previous
+          ← 이전
         </button>
         <button id="next-btn" class="btn btn-primary">
-          Next →
+          다음 →
         </button>
       </div>
 
       <!-- Keyboard Shortcuts Guide -->
       <div class="shortcuts-guide">
         <p>
-          <kbd>←</kbd> <kbd>→</kbd> Navigate •
-          <kbd>Space</kbd> Show/Hide Answer
+          <kbd>←</kbd> <kbd>→</kbd> 이동 •
+          <kbd>Space</kbd> 뜻 보기/숨기기
         </p>
       </div>
     </div>
@@ -94,13 +133,32 @@
   <script type="module">
     // Firebase 초기화는 quiz.js에서 수행
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-    import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+    import { getDatabase, ref, get, set, update } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
     // 전역으로 export
-    window.firebaseModules = { initializeApp, getDatabase, ref, get };
+    window.firebaseModules = {
+      initializeApp,
+      getDatabase,
+      ref,
+      get,
+      set,
+      update,
+      getAuth,
+      signInWithPopup,
+      GoogleAuthProvider,
+      onAuthStateChanged,
+      signOut
+    };
   </script>
+
+  <!-- Authentication Functions -->
+  <script src="auth_functions.js"></script>
 
   <!-- Quiz Logic -->
   <script src="quiz.js"></script>
+
+  <!-- Quiz Initialization Override (with Auth) -->
+  <script src="init_override.js"></script>
 </body>
 </html>

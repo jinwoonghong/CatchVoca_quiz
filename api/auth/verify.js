@@ -54,6 +54,10 @@ export default async function handler(req, res) {
     // Generate custom token for client
     const customToken = await adminAuth.createCustomToken(uid);
 
+    // Debug: Log project ID
+    console.log('[Auth] Custom token created for project:', process.env.FIREBASE_PROJECT_ID);
+    console.log('[Auth] User ID:', uid);
+
     return res.status(200).json({
       success: true,
       customToken,
