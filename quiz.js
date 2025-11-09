@@ -434,6 +434,14 @@ function hideAnswer() {
  */
 async function handleRating(rating) {
   const word = words[currentIndex];
+
+  // quizId 검증
+  if (!quizId) {
+    console.error('[Quiz] Cannot rate word: quizId is not set');
+    alert('퀴즈 ID를 찾을 수 없습니다. 페이지를 새로고침해주세요.');
+    return;
+  }
+
   const wordId = `${word.w}::${quizId}`;
 
   console.log(`[Quiz] Rating ${rating} for word:`, word.w);
@@ -486,6 +494,12 @@ async function handleRating(rating) {
  */
 async function saveReviewStateToFirebase(wordId) {
   try {
+    // userId와 quizId 검증
+    if (!userId || !quizId) {
+      console.error('[Quiz] Cannot save review state: userId or quizId is not set', { userId, quizId });
+      throw new Error('User ID or Quiz ID is missing');
+    }
+
     const db = await initializeFirebase();
     const { ref, update } = window.firebaseModules;
 
@@ -496,6 +510,7 @@ async function saveReviewStateToFirebase(wordId) {
     console.log('[Quiz] Review state saved to Firebase:', wordId);
   } catch (error) {
     console.error('[Quiz] Failed to save review state:', error);
+    // 사용자에게는 조용히 실패 (퀴즈 진행 방해 방지)
   }
 }
 
