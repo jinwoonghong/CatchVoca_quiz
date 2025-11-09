@@ -157,7 +157,16 @@ async function loadQuizDataFromFirebase(quizIdParam) {
     const db = await initializeFirebase();
     const { ref, get } = window.firebaseModules;
 
-    const quizRef = ref(db, `${FIREBASE_PATHS.QUIZZES}/${quizIdParam}`);
+    // URL에서 userId도 가져오기
+    const urlParams = new URLSearchParams(window.location.search);
+    const userIdParam = urlParams.get('uid');
+
+    if (!userIdParam) {
+      showError('Invalid URL', 'User ID is missing from the quiz link.');
+      return null;
+    }
+
+    const quizRef = ref(db, `users/${userIdParam}/${FIREBASE_PATHS.QUIZZES}/${quizIdParam}`);
     const snapshot = await get(quizRef);
 
     if (!snapshot.exists()) {
