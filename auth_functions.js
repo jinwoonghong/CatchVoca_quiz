@@ -123,8 +123,14 @@ async function loadQuizAndStart() {
     hideElement('login-required');
     showElement('quiz-container');
 
+    // Total count 업데이트
+    document.getElementById('total').textContent = words.length;
+
     // 첫 번째 단어 표시
-    renderWord();
+    showWord(0);
+
+    // 이벤트 리스너 등록
+    setupEventListeners();
 
     console.log('[Quiz] Quiz started with', words.length, 'words');
   } catch (error) {
