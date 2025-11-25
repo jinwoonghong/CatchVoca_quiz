@@ -2,6 +2,9 @@
  * Quiz 초기화 오버라이드 (인증 포함)
  */
 
+// 플래그 설정: quiz.js에서 이 파일이 로드되었는지 확인용
+window.initQuizWithAuthLoaded = true;
+
 // 원래 initQuiz 함수를 백업
 const originalInitQuiz = window.initQuiz;
 
@@ -12,7 +15,7 @@ async function initQuizWithAuth() {
   // Firebase 초기화
   await initializeFirebase();
 
-  // ✅ auth 객체가 null이 아닌지 명시적 확인
+  // auth 객체가 null이 아닌지 명시적 확인
   if (!auth) {
     console.error('[Quiz] Firebase Auth not initialized');
     showError('Firebase 초기화 실패', '페이지를 새로고침해주세요.');

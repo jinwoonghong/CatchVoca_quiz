@@ -679,8 +679,18 @@ function handleKeydown(event) {
 
 /**
  * DOMContentLoaded 이벤트 시 초기화
+ * 참고: init_override.js가 로드되면 인증 후 initQuizWithAuth()가 호출됨
+ * 이 이벤트 리스너는 init_override.js가 없는 경우의 fallback
  */
 window.addEventListener('DOMContentLoaded', () => {
   console.log('[Quiz] DOM loaded');
-  initQuiz();
+  // init_override.js가 로드될 때까지 대기
+  // init_override.js가 있으면 initQuizWithAuth()가 실행됨
+  setTimeout(() => {
+    // init_override.js가 로드되지 않은 경우에만 실행
+    if (!window.initQuizWithAuthLoaded) {
+      console.log('[Quiz] No auth override, running basic initQuiz');
+      initQuiz();
+    }
+  }, 100);
 });
