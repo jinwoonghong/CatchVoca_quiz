@@ -609,33 +609,44 @@ function showCompletionMessage() {
 
 /**
  * 오디오 재생
+ * 참고: 네이버 오디오 URL은 CORS/인증 문제로 재생 불가
+ * 새로 저장한 단어는 Free Dictionary API 오디오 URL 사용 (정상 작동)
  */
 function playAudio() {
   const audioBtn = document.getElementById('play-audio');
   const audioUrl = audioBtn.dataset.audioUrl;
 
   if (!audioUrl) {
+    console.warn('[Quiz] No audio URL available');
     return;
   }
 
   const audio = new Audio(audioUrl);
 
-  audio.play().catch((error) => {
-    console.error('[Quiz] Audio play error:', error);
-    alert('Failed to play audio.');
-  });
-
-  // Visual feedback
-  audioBtn.textContent = '🔊 Playing...';
+  // Visual feedback - starting
+  audioBtn.textContent = '🔊 재생 중...';
   audioBtn.disabled = true;
 
-  audio.addEventListener('ended', () => {
-    audioBtn.textContent = '🔊 Play';
+  audio.play().catch((error) => {
+    console.error('[Quiz] Audio play error:', error, 'URL:', audioUrl);
+    // 네이버 오디오 URL인 경우 친절한 메시지 표시
+    if (audioUrl.includes('dict-dn.pstatic.net') || audioUrl.includes('naver')) {
+      alert('⚠️ 이 단어의 오디오는 현재 재생할 수 없습니다.\n\n새로 저장한 단어는 오디오가 정상 작동합니다.');
+    } else {
+      alert('오디오 재생에 실패했습니다. 인터넷 연결을 확인해주세요.');
+    }
+    audioBtn.textContent = '🔊 발음 듣기';
     audioBtn.disabled = false;
   });
 
-  audio.addEventListener('error', () => {
-    audioBtn.textContent = '🔊 Play';
+  audio.addEventListener('ended', () => {
+    audioBtn.textContent = '🔊 발음 듣기';
+    audioBtn.disabled = false;
+  });
+
+  audio.addEventListener('error', (e) => {
+    console.error('[Quiz] Audio error event:', e);
+    audioBtn.textContent = '🔊 발음 듣기';
     audioBtn.disabled = false;
   });
 }
